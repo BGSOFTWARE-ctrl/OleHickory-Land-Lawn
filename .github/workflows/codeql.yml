@@ -1,0 +1,45 @@
+name: Vulnerability Scan
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  sast_scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js (if applicable for website frontend)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18' # Adjust as needed
+
+      - name: Install dependencies (if applicable)
+        run: npm install # Or composer install, pip install -r requirements.txt, etc.
+
+      - name: Run Snyk scan
+        uses: snyk/actions/node@master # Or snyk/actions/python@master, etc.
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }} # Store your Snyk token as a GitHub Secret
+        with:
+          command: test # Or monitor for continuous monitoring
+          args: --all-projects # Scan all projects in the repository
+
+      - name: Run Bandit scan (for Python projects)
+        if: success() && contains(github.event.repository.language, 'Python')
+        run: |
+          pip install bandit
+          bandit -r . -f json -o bandit-report.json || true # Continue on errors to allow other steps to run
+
+      - name: Upload Bandit report (optional)
+        if: success() && contains(github.event.repository.language, 'Python')
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
